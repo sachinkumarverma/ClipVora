@@ -88,6 +88,7 @@ tr:hover { background: #1e293b22; }
 .row-fail { background: #7f1d1d0a; }
 .empty-row { text-align: center; color: #475569; padding: 30px !important; }
 .error-cell { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.ip-cell { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px; color: #64748b; }
 .time-cell { font-size: 11px; color: #475569; white-space: nowrap; }
 .text-green { color: #10b981; }
 .text-red { color: #ef4444; }
