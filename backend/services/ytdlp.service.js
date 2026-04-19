@@ -7,9 +7,10 @@ const commonArgs = [
   '--no-cache-dir',
   '--force-ipv4',
   '--socket-timeout', '30',
+  '--geo-bypass',
   '--js-runtimes', `node:${nodePath}`,
-  ...(isProduction && hasCookiesFile ? ['--cookies', cookiesFile] : []),
-  ...(!isProduction ? ['--cookies-from-browser', 'chrome'] : []),
+  ...(hasCookiesFile ? ['--cookies', cookiesFile] : []),
+  ...(!isProduction && !hasCookiesFile ? ['--cookies-from-browser', 'chrome'] : []),
 ];
 
 const runYtdlp = (args, timeout = 60000) => {

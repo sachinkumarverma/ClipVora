@@ -11,6 +11,7 @@ const ffmpegPath = process.env.FFMPEG_PATH || (isProduction ? '/usr/bin/ffmpeg' 
 const tempDir = path.join(require('os').tmpdir(), 'clipvora_downloads');
 const cookiesFile = path.join(__dirname, '..', 'cookies.txt');
 const hasCookiesFile = fs.existsSync(cookiesFile);
+console.log(`Cookies: ${cookiesFile} | exists: ${hasCookiesFile}`);
 const pythonPath = isProduction ? 'python3' : path.join(__dirname, '..', 'venv', 'bin', 'python3');
 const scraperPath = path.join(__dirname, '..', 'scraper.py');
 const adminBuildPath = path.join(__dirname, '..', '..', 'admin', 'dist');
