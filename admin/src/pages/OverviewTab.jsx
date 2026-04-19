@@ -13,6 +13,7 @@ export default function OverviewTab({ stats, charts, devices, health }) {
         <StatCard icon={<Eye size={20} />} color="#8b5cf6" bg="#ede9fe" label="Total Requests" value={stats.totalInfoRequests.toLocaleString()} sub="URL lookups" />
       </div>
 
+      {/* Row 1: Downloads Trend (wide) + Platform Share (narrow) */}
       <div className="grid-2-1">
         <div className="card">
           <h3><BarChart3 size={15} /> Downloads Trend</h3>
@@ -24,6 +25,7 @@ export default function OverviewTab({ stats, charts, devices, health }) {
         </div>
       </div>
 
+      {/* Row 2: Peak Hours + Device Distribution (equal) */}
       <div className="grid-1-1">
         <div className="card">
           <h3><Clock size={15} /> Peak Hours</h3>
@@ -33,10 +35,12 @@ export default function OverviewTab({ stats, charts, devices, health }) {
           <h3><Users size={15} /> Device Distribution</h3>
           <ChartPie data={devices} nameKey="device_type" colorMap={DEVICE_COLORS} />
         </div>
-        <div className="card">
-          <h3><Server size={15} /> Platform Health (24h)</h3>
-          <HealthGrid health={health} />
-        </div>
+      </div>
+
+      {/* Row 3: Platform Health (full width) */}
+      <div className="card">
+        <h3><Server size={15} /> Platform Health (24h)</h3>
+        <HealthGrid health={health} />
       </div>
     </>
   );

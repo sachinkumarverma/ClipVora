@@ -7,7 +7,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon server.js",
     "start": "NODE_ENV=production node server.js",
-    "render-build": "chmod +x render-build.sh && ./render-build.sh"
+    "render-build": "chmod +x render-build.sh && ./render-build.sh",
+    "refresh-cookies": "venv/bin/yt-dlp --cookies-from-browser chrome --cookies cookies.txt --no-download https://www.youtube.com && echo 'Cookies refreshed! Push to deploy: git add cookies.txt && git commit -m \"refresh cookies\" && git push'"
   },
   "keywords": [],
   "author": "",

@@ -367,10 +367,12 @@ body {
 /* ===== SEARCH BAR ===== */
 .search-wrapper {
   max-width: 720px;
+  width: 100%;
   margin: -48px auto 0;
   padding: 0 20px;
   position: relative;
   z-index: 10;
+  box-sizing: border-box;
 }
 
 .search-bar {
@@ -382,6 +384,8 @@ body {
   box-shadow: var(--shadow-xl);
   border: 2px solid var(--border);
   transition: border-color 0.3s;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .search-bar:focus-within {
@@ -390,6 +394,7 @@ body {
 
 .search-bar input {
   flex: 1;
+  min-width: 0;
   border: none;
   padding: 14px 24px;
   font-size: 1rem;
@@ -397,6 +402,8 @@ body {
   outline: none;
   color: var(--text-dark);
   background: transparent;
+  text-overflow: ellipsis;
+  overflow: hidden;
 }
 
 .search-bar input::placeholder {
