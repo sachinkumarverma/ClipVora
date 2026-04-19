@@ -9,10 +9,13 @@ const commonArgs = [
   '--socket-timeout', '30',
   '--geo-bypass',
   '--js-runtimes', `node:${nodePath}`,
+  // BYPASS YOUTUBE BLOCKS ON RENDER/DATACENTERS
+  '--extractor-args', 'youtube:player_client=android,web',
   ...(hasCookiesFile ? ['--cookies', cookiesFile] : []),
   ...(!isProduction && !hasCookiesFile ? ['--cookies-from-browser', 'chrome'] : []),
 ];
 
+/** @param {string[]} args */
 const runYtdlp = (args, timeout = 60000) => {
   return new Promise((resolve, reject) => {
     const proc = spawn(ytdlpPath, args);
