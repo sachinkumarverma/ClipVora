@@ -80,6 +80,9 @@ const sanitizeTitle = (title) =>
 // Find node binary path for yt-dlp JS challenge solving
 const nodePath = process.execPath;
 
+const cookiesFile = path.join(__dirname, 'cookies.txt');
+const hasCookiesFile = fs.existsSync(cookiesFile);
+
 const commonArgs = [
   "--no-warnings",
   "--no-check-certificates",
@@ -87,7 +90,8 @@ const commonArgs = [
   "--force-ipv4",
   "--socket-timeout", "30",
   "--js-runtimes", `node:${nodePath}`,
-  ...(isProduction ? [] : ["--cookies-from-browser", "chrome"]),
+  ...(isProduction && hasCookiesFile ? ["--cookies", cookiesFile] : []),
+  ...(!isProduction ? ["--cookies-from-browser", "chrome"] : []),
 ];
 
 const isSupported = (url) => {
