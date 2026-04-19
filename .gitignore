@@ -1,0 +1,9 @@
+node_modules/
+venv/
+dist/
+build/
+.env
+.DS_Store
+temp_downloads/
+*.log
+.claude/
