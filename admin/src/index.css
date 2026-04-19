@@ -104,7 +104,7 @@ tr:hover { background: #1e293b22; }
 .badge.warn { background: #78350f; color: #fbbf24; }
 
 /* ===== HEALTH GRID ===== */
-.health-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.health-grid { display: flex; flex-direction: column; gap: 8px; }
 .health-item { background: #0b1120; padding: 12px; border-radius: 8px; border: 1px solid #1f2937; }
 .health-top { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
 .health-name { font-weight: 700; text-transform: capitalize; font-size: 12px; flex: 1; }

@@ -13,8 +13,8 @@ export default function OverviewTab({ stats, charts, devices, health }) {
         <StatCard icon={<Eye size={20} />} color="#8b5cf6" bg="#ede9fe" label="Total Requests" value={stats.totalInfoRequests.toLocaleString()} sub="URL lookups" />
       </div>
 
-      {/* Row 1: Downloads Trend (wide) + Platform Share (narrow) */}
-      <div className="grid-2-1">
+      {/* Row 1: Downloads Trend + Platform Share (equal) */}
+      <div className="grid-1-1">
         <div className="card">
           <h3><BarChart3 size={15} /> Downloads Trend</h3>
           <ChartArea data={charts.downloadsOverTime} />

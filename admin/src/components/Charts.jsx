@@ -3,7 +3,7 @@ import {
   PieChart, Pie, Cell, Legend, AreaChart, Area, Line
 } from 'recharts';
 import { PieChart as PieIcon, Server } from 'lucide-react';
-import { COLORS } from '../constants';
+import { COLORS, PLATFORM_COLORS } from '../constants';
 
 const chartTooltip = { background: '#1e293b', border: '1px solid #334155', borderRadius: 8, fontSize: 12 };
 
@@ -77,7 +77,6 @@ export function HealthGrid({ health }) {
     <div className="health-grid">
       {health.map((h, i) => {
         const rate = parseFloat(h.success_rate);
-        const { PLATFORM_COLORS } = require('../constants');
         return (
           <div key={i} className="health-item">
             <div className="health-top">
