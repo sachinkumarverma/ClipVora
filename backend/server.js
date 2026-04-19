@@ -714,7 +714,7 @@ app.get("/admin/health", authMiddleware, getPlatformHealth);
 const adminBuildPath = path.join(__dirname, '..', 'admin', 'dist');
 if (fs.existsSync(adminBuildPath)) {
   app.use('/admin-panel', express.static(adminBuildPath));
-  app.get('/admin-panel/*', (req, res) => {
+  app.use('/admin-panel', (req, res) => {
     res.sendFile(path.join(adminBuildPath, 'index.html'));
   });
 }
