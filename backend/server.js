@@ -7,6 +7,58 @@ const fs = require("fs");
 const crypto = require("crypto");
 const https = require("https");
 const http = require("http");
+const { trackEvent } = require("./analytics.service");
+
+// Get client IP from request
+const getClientIp = (req) => {
+  return req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+    req.headers['x-real-ip'] ||
+    req.connection?.remoteAddress?.replace('::ffff:', '') ||
+    req.ip?.replace('::ffff:', '') || null;
+};
+
+// IP geolocation cache (avoid repeated API calls for same IP)
+const geoCache = new Map();
+
+const getCountry = async (req) => {
+  // Check proxy/CDN headers first
+  const fromHeader = req.headers['cf-ipcountry'] || req.headers['x-vercel-ip-country'];
+  if (fromHeader) return fromHeader;
+
+  const ip = getClientIp(req);
+  if (!ip || ip === '127.0.0.1' || ip === '::1' || ip.startsWith('192.168.') || ip.startsWith('10.')) {
+    return 'LOCAL';
+  }
+
+  // Check cache
+  if (geoCache.has(ip)) return geoCache.get(ip);
+
+  // Fetch from free IP geolocation API
+  try {
+    const response = await new Promise((resolve, reject) => {
+      http.get(`http://ip-api.com/json/${ip}?fields=countryCode`, { timeout: 3000 }, (res) => {
+        let data = '';
+        res.on('data', c => data += c);
+        res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve(null); } });
+      }).on('error', () => resolve(null));
+    });
+    const country = response?.countryCode || null;
+    if (country) geoCache.set(ip, country);
+    // Keep cache small
+    if (geoCache.size > 5000) geoCache.clear();
+    return country;
+  } catch {
+    return null;
+  }
+};
+
+// Prevent server from crashing on unhandled errors
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err.message);
+});
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled rejection:', err);
+});
 
 const app = express();
 app.use(cors());
@@ -22,7 +74,7 @@ if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 const jobs = new Map();
 
 const sanitizeTitle = (title) =>
-  title.replace(/[<>:"/\\|?*]+/g, "").replace(/\s+/g, " ").trim();
+  title.replace(/[<>:"/\\|?*\n\r\t]+/g, "").replace(/[^\x20-\x7E]/g, "").replace(/\s+/g, " ").trim().substring(0, 100);
 
 // Common yt-dlp args
 // Find node binary path for yt-dlp JS challenge solving
@@ -44,7 +96,7 @@ const isSupported = (url) => {
     'instagram.com',
     'facebook.com', 'fb.watch',
     'pinterest.com', 'pin.it',
-    'threads.net', 'threads.com',
+    'linkedin.com',
     'twitter.com', 'x.com', 't.co'
   ];
   try {
@@ -116,19 +168,33 @@ const extractImagesFromEntry = (entry) => {
   return images;
 };
 
-const runYtdlp = (args) => {
+const runYtdlp = (args, timeout = 60000) => {
   return new Promise((resolve, reject) => {
     const proc = spawn(ytdlpPath, args);
     let output = "", stderrOutput = "";
+    let killed = false;
+
+    const timer = setTimeout(() => {
+      killed = true;
+      proc.kill('SIGKILL');
+      reject(new Error('yt-dlp timed out'));
+    }, timeout);
+
     proc.stdout.on("data", (d) => (output += d.toString()));
     proc.stderr.on("data", (d) => (stderrOutput += d.toString()));
-    proc.on("close", (code) => resolve({ output, stderrOutput, code }));
-    proc.on("error", (err) => reject(err));
+    proc.on("close", (code) => {
+      clearTimeout(timer);
+      if (!killed) resolve({ output, stderrOutput, code });
+    });
+    proc.on("error", (err) => {
+      clearTimeout(timer);
+      if (!killed) reject(err);
+    });
   });
 };
 
 // Platforms that support carousel/multi-image posts
-const carouselPlatforms = ['instagram.com', 'threads.net', 'threads.com', 'twitter.com', 'x.com', 't.co', 'facebook.com', 'fb.watch'];
+const carouselPlatforms = ['instagram.com', 'twitter.com', 'x.com', 't.co', 'facebook.com', 'fb.watch'];
 
 const isCarouselPlatform = (url) => {
   try {
@@ -137,10 +203,81 @@ const isCarouselPlatform = (url) => {
   } catch { return false; }
 };
 
+// Python scraper fallback (instaloader, facebook-scraper, pinterest-dl)
+const pythonPath = isProduction ? 'python3' : path.join(__dirname, 'venv', 'bin', 'python3');
+const scraperPath = path.join(__dirname, 'scraper.py');
+
+const getPlatformName = (url) => {
+  try {
+    const host = new URL(url).hostname.replace('www.', '');
+    if (host.includes('instagram.com')) return 'instagram';
+    if (host.includes('facebook.com') || host.includes('fb.watch')) return 'facebook';
+    if (host.includes('pinterest.com') || host.includes('pin.it')) return 'pinterest';
+    if (host.includes('linkedin.com')) return 'linkedin';
+  } catch {}
+  return null;
+};
+
+const runScraper = (platform, url) => {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(pythonPath, [scraperPath, platform, url], { timeout: 45000 });
+    let output = "", stderrOutput = "";
+    proc.stdout.on("data", (d) => (output += d.toString()));
+    proc.stderr.on("data", (d) => (stderrOutput += d.toString()));
+    proc.on("close", () => {
+      try {
+        const data = JSON.parse(output.trim().split('\n').pop());
+        if (data.error) reject(new Error(data.error));
+        else resolve(data);
+      } catch {
+        reject(new Error(stderrOutput || "Scraper returned invalid data"));
+      }
+    });
+    proc.on("error", (err) => reject(err));
+  });
+};
+
+const buildScraperResponse = (data, url) => {
+  const videoFormats = (data.videos || []).map((v, i) => ({
+    id: `scraper_video_${i}`, ext: v.ext || 'mp4', quality: v.quality || 'Original',
+    filesize: null, width: v.width || null, height: v.height || null,
+    hasAudio: true, directUrl: v.url
+  }));
+  const imageFormats = (data.images || []).map((img, i) => ({
+    id: `scraper_img_${i}`, ext: img.ext || 'jpg',
+    quality: (data.images.length > 1 ? `Image ${i + 1}` : 'Original') +
+      (img.width && img.height ? ` (${img.width}x${img.height})` : ''),
+    filesize: null, width: img.width || null, height: img.height || null,
+    url: img.url
+  }));
+  return {
+    title: data.title || 'Post',
+    thumbnail: data.thumbnail, duration: null,
+    extractor: data.extractor || 'unknown',
+    webpage_url: url, video_id: null,
+    video: videoFormats, audio: [],
+    images: imageFormats,
+    mediaType: videoFormats.length > 0 ? (imageFormats.length > 0 ? 'mixed' : 'video') : 'image',
+    original_url: url
+  };
+};
+
 // ============ INFO ENDPOINT ============
 app.post("/info", async (req, res) => {
   const { url } = req.body;
+  const startTime = Date.now();
+  const platform = getPlatformName(url) || "unknown";
+  const country = await getCountry(req);
+
   if (!url || !isSupported(url)) {
+    trackEvent({
+      eventType: 'info',
+      platform,
+      status: 'failure',
+      responseTime: Date.now() - startTime,
+      country,
+      errorType: 'unsupported_url'
+    });
     return res.status(400).json({ message: "Unsupported or invalid URL" });
   }
 
@@ -150,17 +287,60 @@ app.post("/info", async (req, res) => {
 
     if (!single.output.trim()) {
       console.error("yt-dlp info failed:", single.stderrOutput);
+
+      // Fallback: try Python scrapers when yt-dlp fails
+      if (platform && platform !== "unknown") {
+        try {
+          const scraperData = await runScraper(platform, url);
+          if (scraperData && ((scraperData.videos || []).length > 0 || (scraperData.images || []).length > 0)) {
+            console.log(`Fallback scraper (${platform}) succeeded`);
+            trackEvent({
+              eventType: 'info',
+              platform,
+              status: 'success',
+              responseTime: Date.now() - startTime,
+              country,
+              metadata: { method: 'scraper_fallback' }
+            });
+            return res.json(buildScraperResponse(scraperData, url));
+          }
+        } catch (e) {
+          console.error(`Scraper fallback (${platform}) failed:`, e.message);
+        }
+      }
+
       let msg = "Failed to fetch metadata.";
-      if (single.stderrOutput.includes("Sign in") || single.stderrOutput.includes("bot"))
+      let errorType = 'metadata_fetch_failed';
+      if (single.stderrOutput.includes("Sign in") || single.stderrOutput.includes("bot")) {
         msg = "YouTube requires authentication. Please try again.";
-      else if (single.stderrOutput.includes("login") || single.stderrOutput.includes("cookie"))
+        errorType = 'auth_required';
+      } else if (single.stderrOutput.includes("login") || single.stderrOutput.includes("cookie")) {
         msg = "This content requires login. Try a public post.";
-      else if (single.stderrOutput.includes("Unsupported"))
+        errorType = 'login_required';
+      } else if (single.stderrOutput.includes("Unsupported")) {
         msg = "This URL format is not supported.";
+        errorType = 'unsupported_format';
+      }
+
+      trackEvent({
+        eventType: 'info',
+        platform,
+        status: 'failure',
+        responseTime: Date.now() - startTime,
+        country,
+        errorType
+      });
       return res.status(500).json({ message: msg });
     }
 
     const metadata = JSON.parse(single.output);
+    trackEvent({
+      eventType: 'info',
+      platform,
+      status: 'success',
+      responseTime: Date.now() - startTime,
+      country
+    });
     const formats = metadata.formats || [];
 
     // Extract video formats
@@ -171,7 +351,8 @@ app.post("/info", async (req, res) => {
         const quality = f.format_note || f.resolution || (f.height ? `${f.height}p` : 'Video');
         let filesize = f.filesize || f.filesize_approx;
         if (!filesize && f.tbr && metadata.duration) filesize = Math.round((f.tbr * 1000 / 8) * metadata.duration);
-        return { id: f.format_id, ext: f.ext, quality, filesize, width: f.width, height: f.height };
+        const hasAudio = !!(f.acodec && f.acodec !== 'none');
+        return { id: f.format_id, ext: f.ext, quality, filesize, width: f.width, height: f.height, hasAudio };
       })
       .filter((v, i, a) => a.findIndex(t => t.quality === v.quality) === i);
 
@@ -188,7 +369,7 @@ app.post("/info", async (req, res) => {
     // Extract images from single entry
     let imageFormats = extractImagesFromEntry(metadata);
 
-    // For carousel/multi-image posts (Instagram, Threads, Twitter, Facebook only — NOT YouTube)
+    // For carousel/multi-image posts (Instagram, Twitter, Facebook only — NOT YouTube)
     const hasVideo = formats.some(f => f.vcodec && f.vcodec !== 'none' && !imageExts.includes(f.ext));
     if (isCarouselPlatform(url) && (!hasVideo || imageFormats.length > 0)) {
       try {
@@ -231,7 +412,7 @@ app.post("/info", async (req, res) => {
     let extractor = (metadata.extractor || '').toLowerCase();
     if (extractor.includes('twitter') || extractor.includes('x')) extractor = 'twitter';
     if (extractor.includes('pinterest')) extractor = 'pinterest';
-    if (extractor.includes('thread')) extractor = 'threads';
+    if (extractor.includes('linkedin')) extractor = 'linkedin';
 
     let thumbnail = metadata.thumbnail;
     if (!thumbnail && metadata.thumbnails?.length > 0) {
@@ -253,9 +434,54 @@ app.post("/info", async (req, res) => {
   }
 });
 
+// ============ DIRECT VIDEO DOWNLOAD (scraped) ============
+app.get("/download-video", async (req, res) => {
+  const { url, filename } = req.query;
+  if (!url) return res.status(400).json({ error: "URL required" });
+
+  try {
+    const parsedUrl = new URL(url);
+    const client = parsedUrl.protocol === 'https:' ? https : http;
+
+    client.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Referer': parsedUrl.origin,
+      }
+    }, (videoRes) => {
+      if (videoRes.statusCode >= 300 && videoRes.statusCode < 400 && videoRes.headers.location) {
+        const redirectClient = videoRes.headers.location.startsWith('https') ? https : http;
+        redirectClient.get(videoRes.headers.location, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+        }, (rRes) => {
+          const ct = rRes.headers['content-type'] || 'video/mp4';
+          const fname = filename ? `${sanitizeTitle(filename)}.mp4` : 'video.mp4';
+          res.setHeader('Content-Type', ct);
+          res.setHeader('Content-Disposition', `attachment; filename="${fname}"`);
+          if (rRes.headers['content-length']) res.setHeader('Content-Length', rRes.headers['content-length']);
+          rRes.pipe(res);
+        }).on('error', () => res.status(500).end());
+        return;
+      }
+      const ct = videoRes.headers['content-type'] || 'video/mp4';
+      const fname = filename ? `${sanitizeTitle(filename)}.mp4` : 'video.mp4';
+      res.setHeader('Content-Type', ct);
+      res.setHeader('Content-Disposition', `attachment; filename="${fname}"`);
+      if (videoRes.headers['content-length']) res.setHeader('Content-Length', videoRes.headers['content-length']);
+      videoRes.pipe(res);
+    }).on('error', () => res.status(500).end());
+  } catch {
+    res.status(500).json({ error: "Failed to download video" });
+  }
+});
+
 // ============ DOWNLOAD ENDPOINT ============
 app.post("/download", async (req, res) => {
   const { url, format, formatId } = req.body;
+  const startTime = Date.now();
+  const platform = getPlatformName(url) || "unknown";
+  const country = await getCountry(req);
+
   if (!url || !isSupported(url)) {
     return res.status(400).json({ error: "Unsupported or invalid URL" });
   }
@@ -295,15 +521,35 @@ app.post("/download", async (req, res) => {
   proc.stdout.on("data", parseProgress);
   proc.stderr.on("data", parseProgress);
 
-  proc.on("close", () => {
+  proc.on("close", (code) => {
     // Check if file exists regardless of exit code (secretstorage warning causes code=1)
     const files = fs.readdirSync(tempDir).filter(f => f.startsWith(jobId));
+    const responseTime = Date.now() - startTime;
+    
     if (files.length > 0) {
       job.status = 'completed';
       job.progress = 100;
       job.fileName = files[0];
+      
+      trackEvent({
+        eventType: 'download',
+        platform,
+        status: 'success',
+        responseTime,
+        country,
+        metadata: { format, jobId }
+      });
     } else {
       job.status = 'failed';
+      trackEvent({
+        eventType: 'download',
+        platform,
+        status: 'failure',
+        responseTime,
+        country,
+        errorType: 'download_failed',
+        metadata: { format, jobId, code }
+      });
     }
   });
 
@@ -443,6 +689,35 @@ app.get("/proxy-thumb", async (req, res) => {
     res.status(500).end();
   }
 });
+
+const {
+  adminLogin, authMiddleware,
+  getDashboardStats, getChartData, getRecentActivity,
+  getFailureBreakdown, getGeoAnalytics, getPerformanceMetrics,
+  exportCsv, getPlatformHealth
+} = require("./analytics.api");
+
+// ============ ADMIN AUTH ============
+app.post("/admin/login", adminLogin);
+
+// ============ ADMIN ANALYTICS (protected) ============
+app.get("/admin/stats", authMiddleware, getDashboardStats);
+app.get("/admin/charts", authMiddleware, getChartData);
+app.get("/admin/activity", authMiddleware, getRecentActivity);
+app.get("/admin/failures", authMiddleware, getFailureBreakdown);
+app.get("/admin/geo", authMiddleware, getGeoAnalytics);
+app.get("/admin/performance", authMiddleware, getPerformanceMetrics);
+app.get("/admin/export", authMiddleware, exportCsv);
+app.get("/admin/health", authMiddleware, getPlatformHealth);
+
+// Serve admin panel static files
+const adminBuildPath = path.join(__dirname, '..', 'admin', 'dist');
+if (fs.existsSync(adminBuildPath)) {
+  app.use('/admin-panel', express.static(adminBuildPath));
+  app.get('/admin-panel/*', (req, res) => {
+    res.sendFile(path.join(adminBuildPath, 'index.html'));
+  });
+}
 
 app.get("/", (req, res) => res.send("ClipVora API is active"));
 

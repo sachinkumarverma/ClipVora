@@ -3,7 +3,7 @@ import instagramLogo from './assets/instagram.png';
 import facebookLogo from './assets/facebook.png';
 import pinterestLogo from './assets/pinterest.png';
 import twitterLogo from './assets/twitter.png';
-import threadsLogo from './assets/threads.png';
+import linkedinLogo from './assets/linkedin.png';
 
 const platforms = [
   {
@@ -67,16 +67,16 @@ const platforms = [
     features: ['Videos & Clips', 'High-res images', 'GIFs & Pins'],
   },
   {
-    key: 'threads',
-    name: 'Threads',
-    path: '/threads',
-    logo: threadsLogo,
-    color: '#000000',
-    bgLight: '#f1f5f9',
-    heroTitle: 'Threads Downloader',
-    heroDesc: 'Save videos and media from Threads posts instantly.',
-    placeholder: 'Paste Threads URL here... (e.g. threads.net/@user/post/...)',
-    features: ['Videos', 'Images', 'Media posts'],
+    key: 'linkedin',
+    name: 'LinkedIn',
+    path: '/linkedin',
+    logo: linkedinLogo,
+    color: '#0a66c2',
+    bgLight: '#dbeafe',
+    heroTitle: 'LinkedIn Video Downloader',
+    heroDesc: 'Download LinkedIn videos and posts in high quality — fast and free.',
+    placeholder: 'Paste LinkedIn video URL here... (e.g. linkedin.com/posts/...)',
+    features: ['Video posts', 'Native videos', 'Event recordings'],
   },
 ];
 

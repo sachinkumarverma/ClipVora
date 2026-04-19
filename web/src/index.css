@@ -941,6 +941,21 @@ body {
   color: #ea580c;
 }
 
+.badge-no-audio {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 8px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  vertical-align: middle;
+}
+
 .badge-audio {
   background: var(--primary-light);
   color: #059669;

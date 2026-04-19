@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   Download, AlertCircle, CheckCircle2,
   Loader2, Music, Video, Clock,
-  Search, X, Image
+  Search, X, Image, VolumeX
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
@@ -169,17 +169,34 @@ export default function Downloader({ placeholder }) {
                           <div className="format-info">
                             <span className="badge badge-video">{f.ext?.toUpperCase()}</span>
                             <div>
-                              <div className="format-quality">{f.quality}</div>
+                              <div className="format-quality">
+                                {f.quality}
+                                {f.hasAudio === false && (
+                                  <span className="badge-no-audio"><VolumeX size={11} /> No Audio</span>
+                                )}
+                              </div>
                               <div className="format-size">{formatSize(f.filesize) || t('estSizeNA')}</div>
                             </div>
                           </div>
-                          <button
-                            onClick={() => startDownload('mp4', f.id)}
-                            disabled={preparingId === f.id}
-                            className="btn-download"
-                          >
-                            {preparingId === f.id ? <><Loader2 size={15} className="animate-spin" /> Preparing...</> : <><Download size={15} /> {t('download')}</>}
-                          </button>
+                          {f.directUrl ? (
+                            <button
+                              onClick={() => {
+                                triggerBrowserDownload(`${API}/download-video?url=${encodeURIComponent(f.directUrl)}&filename=${encodeURIComponent(metadata.title || 'video')}`);
+                                setSuccess(t('downloadComplete'));
+                              }}
+                              className="btn-download"
+                            >
+                              <Download size={15} /> {t('download')}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => startDownload('mp4', f.id)}
+                              disabled={preparingId === f.id}
+                              className="btn-download"
+                            >
+                              {preparingId === f.id ? <><Loader2 size={15} className="animate-spin" /> Preparing...</> : <><Download size={15} /> {t('download')}</>}
+                            </button>
+                          )}
                         </div>
                       ))}
                     </div>
