@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { useI18n } from '../i18n';
 
-const API = 'http://localhost:4000';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 export default function Downloader({ placeholder }) {
   const { t } = useI18n();

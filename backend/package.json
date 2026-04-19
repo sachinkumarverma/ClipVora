@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "start": "NODE_ENV=production node server.js",
+    "render-build": "chmod +x render-build.sh && ./render-build.sh"
   },
   "keywords": [],
   "author": "",
@@ -14,8 +16,7 @@
   "dependencies": {
     "body-parser": "^2.2.0",
     "cors": "^2.8.5",
-    "express": "^5.1.0",
-    "play-dl": "^1.9.7"
+    "express": "^5.1.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

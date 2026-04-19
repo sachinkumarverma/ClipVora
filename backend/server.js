@@ -12,9 +12,10 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-const ytdlpPath = path.join(__dirname, "venv", "bin", "yt-dlp");
-const ffmpegPath = "/home/sachin/.cache/Cypress/15.10.0/Cypress/resources/app/node_modules/@ffmpeg-installer/linux-x64/ffmpeg";
-const tempDir = path.join(require("os").homedir(), "ClipVora", "downloads");
+const isProduction = process.env.NODE_ENV === 'production';
+const ytdlpPath = process.env.YTDLP_PATH || (isProduction ? '/usr/local/bin/yt-dlp' : path.join(__dirname, "venv", "bin", "yt-dlp"));
+const ffmpegPath = process.env.FFMPEG_PATH || (isProduction ? '/usr/bin/ffmpeg' : '/home/sachin/.cache/Cypress/15.10.0/Cypress/resources/app/node_modules/@ffmpeg-installer/linux-x64/ffmpeg');
+const tempDir = path.join(require("os").tmpdir(), "clipvora_downloads");
 
 if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
@@ -32,9 +33,9 @@ const commonArgs = [
   "--no-check-certificates",
   "--no-cache-dir",
   "--force-ipv4",
-  "--cookies-from-browser", "chrome",
   "--socket-timeout", "30",
   "--js-runtimes", `node:${nodePath}`,
+  ...(isProduction ? [] : ["--cookies-from-browser", "chrome"]),
 ];
 
 const isSupported = (url) => {
@@ -445,5 +446,5 @@ app.get("/proxy-thumb", async (req, res) => {
 
 app.get("/", (req, res) => res.send("ClipVora API is active"));
 
-const PORT = 4000;
-app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
