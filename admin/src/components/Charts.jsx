@@ -8,10 +8,11 @@ import { COLORS } from '../constants';
 const chartTooltip = { background: '#1e293b', border: '1px solid #334155', borderRadius: 8, fontSize: 12 };
 
 export function ChartArea({ data }) {
+  const parsed = data.map(d => ({ ...d, count: +d.count || 0, success: +d.success || 0, failure: +d.failure || 0 }));
   return (
     <div style={{ height: 280 }}>
       <ResponsiveContainer>
-        <AreaChart data={data}>
+        <AreaChart data={parsed}>
           <defs>
             <linearGradient id="gMain" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
@@ -35,13 +36,15 @@ export function ChartPie({ data, nameKey = 'platform', colorMap }) {
   if (!data || data.length === 0) {
     return <div className="empty-state"><PieIcon size={32} /><p>No data yet</p></div>;
   }
-  const padding = data.length <= 2 ? 0 : 3;
+  // PostgreSQL returns count as string — convert to number
+  const parsed = data.map(d => ({ ...d, count: parseInt(d.count) || 0 }));
+  const padding = parsed.length <= 2 ? 0 : 3;
   return (
     <div style={{ height: 280 }}>
       <ResponsiveContainer>
         <PieChart>
-          <Pie data={data} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={padding} minAngle={15} dataKey="count" nameKey={nameKey}>
-            {data.map((entry, i) => <Cell key={i} fill={(colorMap && colorMap[entry[nameKey]]) || COLORS[i % COLORS.length]} />)}
+          <Pie data={parsed} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={padding} minAngle={15} dataKey="count" nameKey={nameKey}>
+            {parsed.map((entry, i) => <Cell key={i} fill={(colorMap && colorMap[entry[nameKey]]) || COLORS[i % COLORS.length]} />)}
           </Pie>
           <Tooltip contentStyle={chartTooltip} />
           <Legend wrapperStyle={{ fontSize: 11 }} />
@@ -52,10 +55,11 @@ export function ChartPie({ data, nameKey = 'platform', colorMap }) {
 }
 
 export function ChartBar({ data }) {
+  const parsed = data.map(d => ({ ...d, count: +d.count || 0 }));
   return (
     <div style={{ height: 250 }}>
       <ResponsiveContainer>
-        <BarChart data={data}>
+        <BarChart data={parsed}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
           <XAxis dataKey="hour" stroke="#64748b" fontSize={11} tickFormatter={h => `${h}h`} />
           <YAxis stroke="#64748b" fontSize={11} />
