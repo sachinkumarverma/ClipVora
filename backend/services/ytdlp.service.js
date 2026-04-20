@@ -9,8 +9,9 @@ const commonArgs = [
   '--socket-timeout', '30',
   '--geo-bypass',
   '--js-runtimes', `node:${nodePath}`,
-  // BYPASS YOUTUBE BLOCKS ON RENDER/DATACENTERS
-  '--extractor-args', 'youtube:player_client=android,web',
+  // Bypass YouTube blocks on datacenter IPs
+  '--extractor-args', 'youtube:player_client=web,android',
+  '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
   ...(hasCookiesFile ? ['--cookies', cookiesFile] : []),
   ...(!isProduction && !hasCookiesFile ? ['--cookies-from-browser', 'chrome'] : []),
 ];
