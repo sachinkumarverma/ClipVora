@@ -1,6 +1,6 @@
 const CONFIG = {
     // Switch this to 'false' when you are ready to use the deployed site
-    isDev: true,
+    isDev: false,
     devUrl: 'http://localhost:5173',
     prodUrl: 'https://clipvora.vercel.app',
 

@@ -26,21 +26,23 @@ function Dashboard({ token, onLogout }) {
   const [tab, setTab] = useState('overview');
   const [activityFilter, setActivityFilter] = useState({ status: '', platform: '' });
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [days, setDays] = useState(7);
 
   const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
+      const daysParam = { days };
       const [s, c, a, f, g, p, h, d] = await Promise.all([
-        axios.get(`${API}/admin/stats`, { headers }),
-        axios.get(`${API}/admin/charts`, { headers }),
-        axios.get(`${API}/admin/activity`, { headers, params: { ...activityFilter, limit: 50 } }),
-        axios.get(`${API}/admin/failures`, { headers }),
-        axios.get(`${API}/admin/geo`, { headers }),
-        axios.get(`${API}/admin/performance`, { headers }),
-        axios.get(`${API}/admin/health`, { headers }),
-        axios.get(`${API}/admin/devices`, { headers }),
+        axios.get(`${API}/admin/stats`, { headers, params: daysParam }),
+        axios.get(`${API}/admin/charts`, { headers, params: daysParam }),
+        axios.get(`${API}/admin/activity`, { headers, params: { ...activityFilter, ...daysParam, limit: 100 } }),
+        axios.get(`${API}/admin/failures`, { headers, params: daysParam }),
+        axios.get(`${API}/admin/geo`, { headers, params: daysParam }),
+        axios.get(`${API}/admin/performance`, { headers, params: daysParam }),
+        axios.get(`${API}/admin/health`, { headers, params: daysParam }),
+        axios.get(`${API}/admin/devices`, { headers, params: daysParam }),
       ]);
       setStats(s.data); setCharts(c.data); setActivity(a.data);
       setFailures(f.data); setGeo(g.data); setPerformance(p.data);
@@ -53,7 +55,7 @@ function Dashboard({ token, onLogout }) {
     } finally {
       setLoading(false);
     }
-  }, [token, activityFilter, headers, onLogout]);
+  }, [token, activityFilter, headers, onLogout, days]);
 
   useEffect(() => {
     fetchAll();
@@ -101,7 +103,19 @@ function Dashboard({ token, onLogout }) {
           </div>
         </div>
         <div className="header-actions">
-          <button onClick={() => window.open(`${API}/admin/export?token=${token}`, '_blank')} className="btn-sm"><FileDown size={14} /> CSV</button>
+          <select value={days} onChange={e => setDays(parseInt(e.target.value))} className="date-select">
+            <option value={1}>Last 24 hours</option>
+            <option value={7}>Last 7 days</option>
+            <option value={14}>Last 14 days</option>
+            <option value={28}>Last 28 days</option>
+            <option value={90}>Last 90 days</option>
+            <option value={180}>Last 6 months</option>
+            <option value={365}>Last 1 year</option>
+            <option value={1095}>Last 3 years</option>
+            <option value={1825}>Last 5 years</option>
+            <option value={0}>All time</option>
+          </select>
+          <button onClick={() => window.open(`${API}/admin/export?token=${token}&days=${days}`, '_blank')} className="btn-sm"><FileDown size={14} /> CSV</button>
           <button onClick={fetchAll} className="btn-sm"><RefreshCw size={14} className={loading ? 'spin' : ''} /></button>
           <button onClick={onLogout} className="btn-sm btn-danger"><LogOut size={14} /></button>
         </div>

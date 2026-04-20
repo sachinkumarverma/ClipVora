@@ -50,6 +50,8 @@ body { background: #0b1120; font-family: 'Inter', -apple-system, sans-serif; col
 .header-actions { display: flex; gap: 6px; }
 .btn-sm { display: flex; align-items: center; gap: 5px; padding: 7px 12px; background: #1e293b; border: 1px solid #334155; border-radius: 8px; color: #cbd5e1; font-size: 12px; font-weight: 600; cursor: pointer; transition: 0.15s; }
 .btn-sm:hover { background: #334155; }
+.date-select { padding: 7px 10px; background: #0b1120; border: 1px solid #6366f1; border-radius: 8px; color: #a5b4fc; font-size: 12px; font-weight: 600; cursor: pointer; outline: none; }
+.date-select:focus { box-shadow: 0 0 0 2px rgba(99,102,241,0.2); }
 .btn-danger { color: #fca5a5; }
 .btn-danger:hover { background: #7f1d1d; border-color: #991b1b; }
 

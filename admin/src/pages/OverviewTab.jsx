@@ -39,7 +39,7 @@ export default function OverviewTab({ stats, charts, devices, health }) {
 
       {/* Row 3: Platform Health (full width) */}
       <div className="card">
-        <h3><Server size={15} /> Platform Health (24h)</h3>
+        <h3><Server size={15} /> Platform Health</h3>
         <HealthGrid health={health} />
       </div>
     </>

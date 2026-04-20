@@ -33,7 +33,7 @@ A protected analytics dashboard at `/admin` with JWT authentication.
 - **Failure Breakdown** - Error types, failure rate by platform, failure trends
 - **Performance** - Response time per platform, slowest requests
 - **Geography** - Downloads by country (IP-based geolocation)
-- **Platform Health** - 24h success rate per platform with status indicators
+- **Platform Health** - success rate per platform with status indicators
 - **Activity Log** - Filterable, searchable live event stream
 - **CSV Export** - Download all analytics data
 - Auto-refresh every 30 seconds
@@ -188,7 +188,7 @@ After deploy, the admin panel is at `https://your-app.onrender.com/admin-panel`.
 | `GET` | `/admin/failures` | Failure breakdown |
 | `GET` | `/admin/geo` | Geographic analytics |
 | `GET` | `/admin/performance` | Performance metrics |
-| `GET` | `/admin/health` | Platform health (24h) |
+| `GET` | `/admin/health` | Platform health |
 | `GET` | `/admin/export` | CSV export |
 
 ## License
