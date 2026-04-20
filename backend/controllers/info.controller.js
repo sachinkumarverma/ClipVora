@@ -70,19 +70,15 @@ const getMediaInfo = async (req, res) => {
       })
       .filter((v, i, a) => a.findIndex(t => t.quality === v.quality) === i);
 
-    // If all video formats lack audio (DASH-only like Instagram), replace with a
-    // single "Best Quality" merged option — yt-dlp will merge video+audio on download
-    const hasAudioFormats = formats.some(f => f.vcodec === 'none' && f.acodec && f.acodec !== 'none');
+    // If all video formats lack audio (DASH-only like Instagram/Pinterest),
+    // replace with a single "Best Quality" merged option — yt-dlp merges on download
     const allVideoMuted = videoFormats.length > 0 && videoFormats.every(f => !f.hasAudio);
-    if (allVideoMuted && hasAudioFormats) {
-      // Get the best video stream for size estimation
+    if (allVideoMuted) {
       const best = videoFormats.reduce((a, b) => ((b.width || 0) > (a.width || 0) ? b : a), videoFormats[0]);
-      const bestAudio = formats.find(f => f.vcodec === 'none' && f.acodec && f.acodec !== 'none');
-      const totalSize = (best.filesize || 0) + (bestAudio?.filesize || bestAudio?.filesize_approx || 0);
       videoFormats = [{
         id: 'bestvideo+bestaudio/best', ext: 'mp4',
         quality: best.height ? `${best.height}p` : 'Best Quality',
-        filesize: totalSize || null,
+        filesize: best.filesize || null,
         width: best.width, height: best.height, hasAudio: true
       }];
     }
