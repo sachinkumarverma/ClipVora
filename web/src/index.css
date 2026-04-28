@@ -2543,3 +2543,223 @@ body {
   .navbar-lang-option { padding: 10px 12px; }
   .format-row { padding: 14px 16px; }
 }
+
+/* ==========================================================================
+   Extension Guide Page Styles
+   ========================================================================== */
+
+.guide-page {
+  min-height: 100vh;
+  background-color: var(--white);
+  color: var(--text-dark);
+}
+
+body.dark .guide-page {
+  background-color: var(--bg-dark);
+  color: var(--white);
+}
+
+.guide-hero {
+  text-align: center;
+  padding: 60px 20px 20px;
+  background: linear-gradient(to bottom, var(--primary-light), transparent);
+}
+
+body.dark .guide-hero {
+  background: linear-gradient(to bottom, rgba(34, 197, 94, 0.05), transparent);
+}
+
+.guide-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--primary-light);
+  color: var(--primary);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: 24px;
+}
+
+body.dark .guide-badge {
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.guide-hero h1 {
+  font-size: 2.5rem;
+  margin-bottom: 16px;
+  font-weight: 800;
+  color: var(--text-dark);
+}
+
+body.dark .guide-hero h1 {
+  color: var(--white);
+}
+
+.guide-hero p {
+  font-size: 1.1rem;
+  color: var(--text-muted);
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.guide-steps {
+  padding: 40px 20px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.steps-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  position: relative;
+}
+
+.guide-step-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 32px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+body.dark .guide-step-card {
+  background: var(--bg-dark-2);
+  border-color: rgba(255,255,255,0.05);
+}
+
+@media (min-width: 768px) {
+  .guide-hero h1 { font-size: 3rem; }
+  .guide-step-card {
+    flex-direction: row;
+    align-items: center;
+    gap: 40px;
+  }
+  .guide-step-card:nth-child(even) {
+    flex-direction: row-reverse;
+  }
+}
+
+.step-number {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  width: 80px;
+  height: 80px;
+  background: var(--primary-light);
+  color: rgba(34, 197, 94, 0.3);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  font-weight: 800;
+  z-index: 0;
+  pointer-events: none;
+}
+
+body.dark .step-number {
+  background: rgba(34, 197, 94, 0.05);
+  color: rgba(34, 197, 94, 0.15);
+}
+
+.step-image-container {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+  background: rgba(0,0,0,0.05);
+  border-radius: 16px;
+  padding: 20px;
+  overflow: hidden;
+}
+
+body.dark .step-image-container {
+  background: rgba(0,0,0,0.2);
+}
+
+.step-3d-image {
+  max-width: 100%;
+  max-height: 250px;
+  object-fit: contain;
+  transition: transform 0.3s ease;
+}
+
+.guide-step-card:hover .step-3d-image {
+  transform: translateY(-5px) scale(1.05);
+}
+
+.step-content {
+  flex: 1;
+  position: relative;
+  z-index: 1;
+  margin-top: 20px;
+}
+
+@media (min-width: 768px) {
+  .step-content { margin-top: 0; }
+}
+
+.step-content h3 {
+  font-size: 1.5rem;
+  margin-bottom: 12px;
+  color: var(--text-dark);
+}
+
+body.dark .step-content h3 {
+  color: var(--white);
+}
+
+.step-content p {
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-bottom: 0;
+}
+
+.guide-success-card {
+  text-align: center;
+  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+  border-radius: 24px;
+  padding: 48px 24px;
+  margin-top: 60px;
+  color: white;
+  box-shadow: 0 20px 40px rgba(34, 197, 94, 0.2);
+}
+
+.success-icon {
+  margin-bottom: 20px;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+}
+
+.guide-success-card h2 {
+  font-size: 2rem;
+  margin-bottom: 16px;
+  color: white;
+}
+
+.guide-success-card p {
+  font-size: 1.1rem;
+  opacity: 0.9;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.guide-faq {
+  padding: 40px 20px 100px;
+}
+
+.guide-faq .card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+  margin-top: 40px;
+}
