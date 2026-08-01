@@ -1,0 +1,38 @@
+name: Keep Supabase Alive
+
+on:
+  schedule:
+    # Runs at 00:00 every 3 days. 
+    # This ensures your project gets activity well within the 7-day inactivity limit.
+    - cron: '0 0 */3 * *'
+  
+  # Allows you to trigger the workflow manually from the GitHub Actions tab for testing
+  workflow_dispatch:
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Ping Supabase REST API
+        env:
+          # You will need to add these two secrets in your GitHub repository:
+          # Go to Settings -> Secrets and variables -> Actions -> New repository secret
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          echo "Pinging Supabase to prevent pausing..."
+          
+          # We make a simple GET request to the root of your Supabase REST API.
+          # This counts as activity and will reset the inactivity timer.
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X GET "$SUPABASE_URL/rest/v1/" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY")
+            
+          echo "Supabase responded with HTTP status: $HTTP_STATUS"
+          
+          if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 400 ]; then
+            echo "Successfully pinged Supabase!"
+          else
+            echo "Warning: Received unexpected status code $HTTP_STATUS, but the request was still made to keep it alive."
+          fi
