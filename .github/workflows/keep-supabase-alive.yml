@@ -21,18 +21,33 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          echo "Pinging Supabase to prevent pausing..."
-          
-          # We make a simple GET request to the root of your Supabase REST API.
-          # This counts as activity and will reset the inactivity timer.
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X GET "$SUPABASE_URL/rest/v1/" \
+          # Trim trailing slash if present
+          CLEAN_URL="${SUPABASE_URL%/}"
+
+          echo "Attempting to ping Supabase at: $CLEAN_URL"
+
+          # We query an actual database table (analytics_events) with select=id&limit=1.
+          # This forces PostgREST to execute a SELECT query against PostgreSQL, registering real DB activity.
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 15 -X GET "$CLEAN_URL/rest/v1/analytics_events?select=id&limit=1" \
             -H "apikey: $SUPABASE_ANON_KEY" \
-            -H "Authorization: Bearer $SUPABASE_ANON_KEY")
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" || echo "CURL_ERROR")
             
+          if [ "$HTTP_STATUS" = "CURL_ERROR" ]; then
+            echo "::error::Network or DNS error occurred when trying to reach Supabase."
+            echo "Possible reasons:"
+            echo " 1. Your Supabase project is ALREADY PAUSED by Supabase (which disables its DNS host)."
+            echo " 2. SUPABASE_URL secret is incorrect or missing 'https://'."
+            echo "Please check your Supabase Dashboard to restore/unpause the project."
+            exit 1
+          fi
+
           echo "Supabase responded with HTTP status: $HTTP_STATUS"
           
           if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 400 ]; then
             echo "Successfully pinged Supabase!"
           else
-            echo "Warning: Received unexpected status code $HTTP_STATUS, but the request was still made to keep it alive."
+            echo "Warning: Received HTTP status $HTTP_STATUS."
+            if [ "$HTTP_STATUS" -eq 503 ] || [ "$HTTP_STATUS" -eq 404 ]; then
+              echo "HTTP $HTTP_STATUS usually indicates the Supabase project is currently paused or undergoing maintenance."
+            fi
           fi
