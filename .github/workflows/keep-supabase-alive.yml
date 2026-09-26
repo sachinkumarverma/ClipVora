@@ -22,40 +22,40 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: 'backend/package-lock.json'
 
       - name: Install Dependencies
         run: |
           cd backend
           npm ci || npm install
 
-      - name: 1. Direct PostgreSQL DB Connection Ping
+      - name: Keep-Alive Execution
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: |
-          if [ -z "$DATABASE_URL" ]; then
-            echo "::warning::DATABASE_URL secret is missing in GitHub Repository Secrets."
-            echo "To enable direct PostgreSQL pings, add DATABASE_URL in Settings -> Secrets and variables -> Actions."
-          else
-            echo "Executing direct PostgreSQL Keep-Alive query..."
-            cd backend
-            node keepalive.js
-          fi
-
-      - name: 2. Supabase REST API Gateway Ping
-        env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
-            echo "::warning::SUPABASE_URL or SUPABASE_ANON_KEY secret is not set."
-            echo "If DATABASE_URL succeeded above, your database was pinged. However, setting SUPABASE_URL and SUPABASE_ANON_KEY ensures REST API gateway activity as well."
-          else
-            CLEAN_URL="${SUPABASE_URL%/}"
-            echo "Pinging Supabase REST API at: $CLEAN_URL/rest/v1/"
+          SUCCESS=0
 
-            # Ping REST API root
+          # 1. Direct PostgreSQL DB Connection Ping (Primary & Most Reliable)
+          if [ -n "$DATABASE_URL" ]; then
+            echo "--- Running Direct PostgreSQL Keep-Alive ---"
+            cd backend
+            if node keepalive.js; then
+              echo "✅ PostgreSQL Direct Database Ping SUCCESSFUL!"
+              SUCCESS=1
+            else
+              echo "❌ Direct PostgreSQL Ping Failed."
+            fi
+            cd ..
+          else
+            echo "::warning::DATABASE_URL secret is missing in GitHub Repository Secrets."
+          fi
+
+          # 2. Supabase REST API Gateway Ping (Secondary)
+          if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ]; then
+            echo "--- Running Supabase REST API Ping ---"
+            CLEAN_URL="${SUPABASE_URL%/}"
+            
             HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 15 -X GET "$CLEAN_URL/rest/v1/" \
               -H "apikey: $SUPABASE_ANON_KEY" \
               -H "Authorization: Bearer $SUPABASE_ANON_KEY" || echo "CURL_ERROR")
@@ -63,19 +63,28 @@ jobs:
             echo "Supabase REST API responded with HTTP status: $HTTP_STATUS"
 
             if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 300 ]; then
-              echo "✅ REST API ping successful!"
+              echo "✅ REST API Ping SUCCESSFUL!"
+              SUCCESS=1
             else
-              echo "::error::REST API ping returned HTTP $HTTP_STATUS."
-              if [ "$HTTP_STATUS" = "CURL_ERROR" ]; then
-                echo "Network failure or Supabase project host is unreachable (Project may be paused already!)."
-              fi
-              # Exit with error if both REST ping and DB ping couldn't run
-              if [ -z "$DATABASE_URL" ]; then
-                exit 1
+              echo "::warning::REST API ping returned HTTP $HTTP_STATUS."
+              if [ "$HTTP_STATUS" = "401" ]; then
+                echo "Reason: HTTP 401 Unauthorized means SUPABASE_ANON_KEY or SUPABASE_URL in GitHub Secrets is invalid or expired."
               fi
             fi
+          else
+            echo "::warning::SUPABASE_URL or SUPABASE_ANON_KEY secrets are missing in GitHub Repository Secrets."
           fi
 
-      - name: Final Check
-        run: |
-          echo "🎉 Keep-Alive execution completed!"
+          # Final Evaluation
+          if [ "$SUCCESS" -eq 1 ]; then
+            echo "🎉 Keep-Alive succeeded! Supabase database activity registered."
+            exit 0
+          else
+            echo "::error::Both PostgreSQL DB ping and REST API ping failed or were missing secrets."
+            echo "PLEASE ACTION: Add 'DATABASE_URL' to your GitHub Repository Secrets:"
+            echo "1. Go to your GitHub Repo -> Settings -> Secrets and variables -> Actions"
+            echo "2. Click 'New repository secret'"
+            echo "3. Name: DATABASE_URL"
+            echo "4. Value: postgresql://postgres.nbioyoitrcvhunytdbds:Skverma%402001@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres"
+            exit 1
+          fi
