@@ -48,10 +48,10 @@ jobs:
             fi
             cd ..
           else
-            echo "::warning::DATABASE_URL secret is missing in GitHub Repository Secrets."
+            echo "DATABASE_URL secret is missing in GitHub Repository Secrets."
           fi
 
-          # 2. Supabase REST API Gateway Ping (Secondary)
+          # 2. Supabase REST API Gateway Ping (Optional Secondary)
           if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ]; then
             echo "--- Running Supabase REST API Ping ---"
             CLEAN_URL="${SUPABASE_URL%/}"
@@ -66,13 +66,8 @@ jobs:
               echo "✅ REST API Ping SUCCESSFUL!"
               SUCCESS=1
             else
-              echo "::warning::REST API ping returned HTTP $HTTP_STATUS."
-              if [ "$HTTP_STATUS" = "401" ]; then
-                echo "Reason: HTTP 401 Unauthorized means SUPABASE_ANON_KEY or SUPABASE_URL in GitHub Secrets is invalid or expired."
-              fi
+              echo "Info: REST API ping returned HTTP $HTTP_STATUS (PostgreSQL DB ping already handled project activity)."
             fi
-          else
-            echo "::warning::SUPABASE_URL or SUPABASE_ANON_KEY secrets are missing in GitHub Repository Secrets."
           fi
 
           # Final Evaluation
