@@ -27,4 +27,21 @@ if (fs.existsSync(adminBuildPath)) {
 
 app.get('/', (req, res) => res.send('ClipVora API is active'));
 
-app.listen(port, () => console.log(`Server running on port ${port}`));
+// Periodic Supabase DB keep-alive ping (every 24 hours)
+const { query } = require('./db');
+const KEEPALIVE_INTERVAL = 24 * 60 * 60 * 1000;
+const pingDatabase = async () => {
+  try {
+    const res = await query('SELECT NOW()');
+    console.log(`[Supabase Keep-Alive] DB Ping successful at ${res.rows[0].now}`);
+  } catch (err) {
+    console.error('[Supabase Keep-Alive] DB Ping failed:', err.message);
+  }
+};
+
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+  pingDatabase();
+  setInterval(pingDatabase, KEEPALIVE_INTERVAL);
+});
+

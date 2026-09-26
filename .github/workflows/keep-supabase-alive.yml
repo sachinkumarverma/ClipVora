@@ -2,52 +2,80 @@ name: Keep Supabase Alive
 
 on:
   schedule:
-    # Runs at 00:00 every 3 days. 
-    # This ensures your project gets activity well within the 7-day inactivity limit.
-    - cron: '0 0 */3 * *'
+    # Runs at 00:00 UTC every 2 days.
+    # This guarantees active traffic well within Supabase's 7-day inactivity pause limit.
+    - cron: '0 0 */2 * *'
   
-  # Allows you to trigger the workflow manually from the GitHub Actions tab for testing
+  # Allows manual triggering from the GitHub Actions tab
   workflow_dispatch:
 
 jobs:
-  ping-supabase:
+  keep-alive:
+    name: Ping Supabase Database & REST API
     runs-on: ubuntu-latest
     
     steps:
-      - name: Ping Supabase REST API
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'backend/package-lock.json'
+
+      - name: Install Dependencies
+        run: |
+          cd backend
+          npm ci || npm install
+
+      - name: 1. Direct PostgreSQL DB Connection Ping
         env:
-          # You will need to add these two secrets in your GitHub repository:
-          # Go to Settings -> Secrets and variables -> Actions -> New repository secret
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::warning::DATABASE_URL secret is missing in GitHub Repository Secrets."
+            echo "To enable direct PostgreSQL pings, add DATABASE_URL in Settings -> Secrets and variables -> Actions."
+          else
+            echo "Executing direct PostgreSQL Keep-Alive query..."
+            cd backend
+            node keepalive.js
+          fi
+
+      - name: 2. Supabase REST API Gateway Ping
+        env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          # Trim trailing slash if present
-          CLEAN_URL="${SUPABASE_URL%/}"
-
-          echo "Attempting to ping Supabase at: $CLEAN_URL"
-
-          # We query an actual database table (analytics_events) with select=id&limit=1.
-          # This forces PostgREST to execute a SELECT query against PostgreSQL, registering real DB activity.
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 15 -X GET "$CLEAN_URL/rest/v1/analytics_events?select=id&limit=1" \
-            -H "apikey: $SUPABASE_ANON_KEY" \
-            -H "Authorization: Bearer $SUPABASE_ANON_KEY" || echo "CURL_ERROR")
-            
-          if [ "$HTTP_STATUS" = "CURL_ERROR" ]; then
-            echo "::error::Network or DNS error occurred when trying to reach Supabase."
-            echo "Possible reasons:"
-            echo " 1. Your Supabase project is ALREADY PAUSED by Supabase (which disables its DNS host)."
-            echo " 2. SUPABASE_URL secret is incorrect or missing 'https://'."
-            echo "Please check your Supabase Dashboard to restore/unpause the project."
-            exit 1
-          fi
-
-          echo "Supabase responded with HTTP status: $HTTP_STATUS"
-          
-          if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 400 ]; then
-            echo "Successfully pinged Supabase!"
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::warning::SUPABASE_URL or SUPABASE_ANON_KEY secret is not set."
+            echo "If DATABASE_URL succeeded above, your database was pinged. However, setting SUPABASE_URL and SUPABASE_ANON_KEY ensures REST API gateway activity as well."
           else
-            echo "Warning: Received HTTP status $HTTP_STATUS."
-            if [ "$HTTP_STATUS" -eq 503 ] || [ "$HTTP_STATUS" -eq 404 ]; then
-              echo "HTTP $HTTP_STATUS usually indicates the Supabase project is currently paused or undergoing maintenance."
+            CLEAN_URL="${SUPABASE_URL%/}"
+            echo "Pinging Supabase REST API at: $CLEAN_URL/rest/v1/"
+
+            # Ping REST API root
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 15 -X GET "$CLEAN_URL/rest/v1/" \
+              -H "apikey: $SUPABASE_ANON_KEY" \
+              -H "Authorization: Bearer $SUPABASE_ANON_KEY" || echo "CURL_ERROR")
+
+            echo "Supabase REST API responded with HTTP status: $HTTP_STATUS"
+
+            if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 300 ]; then
+              echo "✅ REST API ping successful!"
+            else
+              echo "::error::REST API ping returned HTTP $HTTP_STATUS."
+              if [ "$HTTP_STATUS" = "CURL_ERROR" ]; then
+                echo "Network failure or Supabase project host is unreachable (Project may be paused already!)."
+              fi
+              # Exit with error if both REST ping and DB ping couldn't run
+              if [ -z "$DATABASE_URL" ]; then
+                exit 1
+              fi
             fi
           fi
+
+      - name: Final Check
+        run: |
+          echo "🎉 Keep-Alive execution completed!"
